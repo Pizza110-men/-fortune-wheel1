@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Колесо Фортуны</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f0c1a;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 12px 24px;
+  }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: rgba(255,255,255,0.45);
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .balance-bar {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 8px 16px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .balance-bar span { color: #a78bfa; font-weight: 600; }
+
+  .round-label {
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    text-align: center;
+    margin-bottom: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .wheel-wrap {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    margin: 0 auto 20px;
+  }
+
+  .pointer {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 20px solid #f87171;
+    z-index: 10;
+    filter: drop-shadow(0 2px 6px rgba(248,113,113,0.6));
+  }
+
+  canvas { border-radius: 50%; }
+
+  .winner-box {
+    display: none;
+    background: rgba(52,211,153,0.12);
+    border: 1px solid rgba(52,211,153,0.35);
+    border-radius: 12px;
+    padding: 10px 16px;
+    text-align: center;
+    margin-bottom: 16px;
+    width: 100%;
+    max-width: 320px;
+  }
+  .winner-box.show { display: block; }
+  .winner-box .w-name { font-size: 15px; font-weight: 600; color: #34d399; }
+  .winner-box .w-sub { font-size: 12px; color: rgba(52,211,153,0.7); margin-top: 3px; }
+
+  .bet-row {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    max-width: 320px;
+    margin-bottom: 10px;
+  }
+
+  input[type=number] {
+    flex: 1;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+  }
+  input[type=number]:focus { border-color: rgba(167,139,250,0.6); }
+
+  .btn {
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.96); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-bet {
+    background: rgba(167,139,250,0.2);
+    border: 1px solid rgba(167,139,250,0.4);
+    color: #a78bfa;
+  }
+
+  .btn-spin {
+    width: 100%;
+    max-width: 320px;
+    padding: 13px;
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn-spin:active { transform: scale(0.97); }
+  .btn-spin:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .players {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .player-card {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .p-info { flex: 1; min-width: 0; }
+  .p-name { font-size: 13px; font-weight: 500; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-bet { font-size: 11px; color: rgba(255,255,255,0.4); margin-top: 2px; }
+  .p-chance { font-size: 13px; font-weight: 600; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<h1>Колесо Фортуны</h1>
+<p class="subtitle">Ставь монеты · крути · побеждай</p>
+
+<div class="balance-bar">Твой баланс: <span id="myBal">1000</span> монет</div>
+<div class="round-label" id="roundLabel">Раунд #1 · Ставки открыты</div>
+
+<div class="wheel-wrap">
+  <div class="pointer"></div>
+  <canvas id="wheel" width="280" height="280"></canvas>
+</div>
+
+<div class="winner-box" id="winnerBox">
+  <div class="w-name" id="wName"></div>
+  <div class="w-sub" id="wSub"></div>
+</div>
+
+<div class="bet-row">
+  <input type="number" id="betInput" value="50" min="1" placeholder="Ставка" />
+  <button class="btn btn-bet" onclick="placeBet()">Поставить</button>
+</div>
+
+<button class="btn-spin" id="spinBtn" onclick="spin()">Крутить колесо</button>
+
+<div class="players" id="playersList"></div>
+
+<script>
+try { window.Telegram.WebApp.expand(); } catch(e) {}
+
+const COLORS = ['#7c3aed','#059669','#dc2626','#d97706'];
+const TEXT_COLORS = ['#ede9fe','#d1fae5','#fee2e2','#fef3c7'];
+
+const PLAYERS = [
+  { id:'you', name:'Ты', color: COLORS[0], tc: TEXT_COLORS[0], bet:0, balance:1000, bot:false },
+  { id:'b1',  name:'Алекс', color: COLORS[1], tc: TEXT_COLORS[1], bet:0, balance:1000, bot:true },
+  { id:'b2',  name:'Катя',  color: COLORS[2], tc: TEXT_COLORS[2], bet:0, balance:1000, bot:true },
+  { id:'b3',  name:'Макс',  color: COLORS[3], tc: TEXT_COLORS[3], bet:0, balance:1000, bot:true },
+];
+
+let spinning = false;
+let angle = 0;
+let round = 1;
+
+function total() { return PLAYERS.reduce((s,p) => s + p.bet, 0); }
+function pct(p) { const t = total(); return t===0 ? 0 : Math.round(p.bet/t*100); }
+
+function render() {
+  document.getElementById('myBal').textContent = PLAYERS[0].balance;
+  const list = document.getElementById('playersList');
+  list.innerHTML = '';
+  PLAYERS.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'player-card';
+    d.innerHTML = `
+      <div class="avatar" style="background:${p.color}33;color:${p.color};">${p.name.slice(0,2).toUpperCase()}</div>
+      <div class="p-info">
+        <div class="p-name">${p.name}${p.bot?' <span style="font-size:10px;opacity:0.4">бот</span>':''}</div>
+        <div class="p-bet">${p.bet} монет · баланс ${p.balance}</div>
+      </div>
+      <div class="p-chance" style="color:${p.color}">${pct(p)}%</div>
+    `;
+    list.appendChild(d);
+  });
+  drawWheel();
+}
+
+function drawWheel() {
+  const c = document.getElementById('wheel');
+  const ctx = c.getContext('2d');
+  const cx=140, cy=140, r=136;
+  ctx.clearRect(0,0,280,280);
+
+  const t = total();
+  if (t===0) {
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.fillStyle='#1e1b2e'; ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,0.25)';
+    ctx.font='13px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('Сделайте ставки',cx,cy);
+    return;
+  }
+
+  let a = angle;
+  PLAYERS.forEach(p => {
+    if (!p.bet) return;
+    const slice = (p.bet/t)*Math.PI*2;
+    ctx.beginPath(); ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,a,a+slice); ctx.closePath();
+    ctx.fillStyle=p.color; ctx.fill();
+    ctx.strokeStyle='#0f0c1a'; ctx.lineWidth=2; ctx.stroke();
+
+    const mid = a+slice/2;
+    const tx=cx+Math.cos(mid)*r*0.65, ty=cy+Math.sin(mid)*r*0.65;
+    ctx.fillStyle=p.tc; ctx.font='bold 12px sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(p.name.split(' ')[0],tx,ty);
+    if (slice>0.4) { ctx.font='10px sans-serif'; ctx.fillText(pct(p)+'%',tx,ty+14); }
+    a+=slice;
+  });
+
+  ctx.beginPath(); ctx.arc(cx,cy,18,0,Math.PI*2);
+  ctx.fillStyle='#0f0c1a'; ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.15)'; ctx.lineWidth=1; ctx.stroke();
+}
+
+function placeBet() {
+  if (spinning) return;
+  const amt = parseInt(document.getElementById('betInput').value)||0;
+  const me = PLAYERS[0];
+  if (amt<=0 || amt>me.balance) return;
+  me.bet+=amt; me.balance-=amt;
+  render();
+}
+
+function botsBet() {
+  PLAYERS.filter(p=>p.bot).forEach(p=>{
+    const max=Math.min(p.balance,250);
+    const b=Math.floor(Math.random()*max*0.5)+30;
+    if (p.balance>=b) { p.bet+=b; p.balance-=b; }
+  });
+}
+
+function spin() {
+  if (spinning) return;
+  const t = total();
+  if (t===0) { alert('Сначала сделайте ставку!'); return; }
+  spinning=true;
+  document.getElementById('spinBtn').disabled=true;
+  document.getElementById('winnerBox').classList.remove('show');
+
+  const rand=Math.random()*t;
+  let acc=0, winner=PLAYERS[0];
+  for (const p of PLAYERS) { acc+=p.bet; if (rand<acc){winner=p;break;} }
+
+  let wMid=0, a=0;
+  for (const p of PLAYERS) {
+    if (!p.bet) continue;
+    const s=(p.bet/t)*Math.PI*2;
+    if (p.id===winner.id){wMid=a+s/2;break;}
+    a+=s;
+  }
+
+  const target=-Math.PI/2-wMid;
+  const extra=(Math.floor(Math.random()*3)+5)*Math.PI*2;
+  const final=target+extra;
+  const dur=4200, t0=performance.now(), a0=angle;
+
+  function go(now){
+    const el=now-t0, prog=Math.min(el/dur,1);
+    const ease=1-Math.pow(1-prog,4);
+    angle=a0+(final-a0)*ease;
+    drawWheel();
+    if (prog<1){requestAnimationFrame(go);return;}
+    angle=final%(Math.PI*2);
+    spinning=false;
+    winner.balance+=t;
+    document.getElementById('wName').textContent=winner.name+' победил!';
+    document.getElementById('wSub').textContent=`Выиграл ${t} монет (шанс был ${pct(winner)}%)`;
+    document.getElementById('winnerBox').classList.add('show');
+    PLAYERS.forEach(p=>p.bet=0);
+    round++;
+    document.getElementById('roundLabel').textContent=`Раунд #${round} · Ставки открыты`;
+    document.getElementById('spinBtn').disabled=false;
+    setTimeout(()=>{botsBet();render();},900);
+  }
+  requestAnimationFrame(go);
+}
+
+botsBet();
+render();
+</script>
+</body>
+</html>
